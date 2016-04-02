@@ -8,25 +8,27 @@ import java.io.File
 
 import akka.actor._
 
-case class ProcessStringMsg(lineNumber: Int, fileName: String, string: String, fileSender: Option[ActorRef], listener: ActorRef)
+//Create all the message types
+case class ProcessStringMsg(lineNumber: Int, fileName: String, line: String, fileSender: Option[ActorRef], listener: ActorRef)
 case class StringProcessedMsg(fileSender: Option[ActorRef])
-case class FileReference(fileName: String, stream: InputStream)
-case class CaptureStream(fileName: String, numOfWords: Int, lineNumber: Int)
-case class closeStream(totalTime: Long, fileName: String)
+case class CaptureStreamMsg(fileName: String, numOfWords: Int, lineNumber: Int)
+case class closeStreamMsg(totalTime: Long, fileName: String)
 case class StartProcessFileMsg()
 
+//A class to hold the file name and input stream
+class FileReference(val fileName: String, val stream: InputStream)
 
 class StringCounterActor extends Actor {
   def receive = {
-    case ProcessStringMsg(lineNumber, fileName, string, rootSender, listener) => {
+    case ProcessStringMsg(lineNumber, fileName, line, rootSender, listener) => {
       var wordsInLine = 0
-      if(string.length != 0)
+      if(line.length != 0)
       {
-        wordsInLine = string.split(" ").length
+        wordsInLine = line.split(" ").length
       }
 
       try {
-        listener ! CaptureStream(fileName, wordsInLine, lineNumber) //Streams word count to listener
+        listener ! CaptureStreamMsg(fileName, wordsInLine, lineNumber) //Streams word count to listener
         sender ! StringProcessedMsg(rootSender) //Sends a ping to the RoutingActor every time it finishes a task
       }
       catch {
@@ -69,13 +71,31 @@ class RoutingActor(fileRef: FileReference, listener: ActorRef) extends Actor {
 
       if (linesProcessed == totalLines) {
         val stopTime = System.nanoTime()
-        listener ! closeStream(stopTime-startTime, fileName)
+        listener ! closeStreamMsg(stopTime-startTime, fileName)
         rootSender match {
           case (Some(o)) => o ! linesProcessed // provide result to process invoker
         }
       }
     }
     case _ => println("message not recognized!")
+  }
+}
+
+class Listener extends Actor {
+  private var totalNumberOfWords = 0
+
+  def receive = {
+
+    case CaptureStreamMsg(fileName, numOfWords, lineNumber) =>
+      totalNumberOfWords += numOfWords
+    //println(fileName + " " + "L." + lineNumber + " " + numOfWords + " words")
+    //Stream results to Client
+
+    case closeStreamMsg(totalTime, fileName) =>
+      println("Stream Complete: " + fileName + " Total Number of Words: " + totalNumberOfWords +
+        " Total Time: " + totalTime/1000000 + "ms")
+
+    case _ => println("Error: message not recognized")
   }
 }
 
@@ -129,20 +149,3 @@ object AkkaWordCounter extends App {
   }
 }
 
-class Listener extends Actor {
-  private var totalNumberOfWords = 0
-
-  def receive = {
-
-    case CaptureStream(fileName, numOfWords, lineNumber) =>
-      totalNumberOfWords += numOfWords
-    //println(fileName + " " + "L." + lineNumber + " " + numOfWords + " words")
-    //Stream results to Client
-
-    case closeStream(totalTime, fileName) =>
-      println("Stream Complete: " + fileName + " Total Number of Words: " + totalNumberOfWords +
-              " Total Time: " + totalTime/1000000 + "ms")
-
-    case _ => println("Error: message not recognized")
-  }
-}
