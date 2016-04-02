@@ -132,7 +132,7 @@ object AkkaWordCounter extends App {
     //When the future returns after all the work is complete
     val futureResult = actor ? StartProcessFileMsg()
     futureResult.map { result =>
-      println("Number of lines processed in " + fileName + ": " + result)
+      //println("Number of lines processed in " + fileName + ": " + result)
       //Terminate Actor System when result is received
       system.terminate()
     }
