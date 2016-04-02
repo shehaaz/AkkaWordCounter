@@ -2,6 +2,8 @@ Implementation of [Concurrency and Fault Tolerance Made Easy: An Akka Tutorial w
 
 Using Akka Actors this reads all text files in a directory and counts the number of words in each file.
 
+This is an Intellij SBT project, so you can clone it and play around. I hope this helps someone! 😀
+
 Example output:
 
 `$>`
