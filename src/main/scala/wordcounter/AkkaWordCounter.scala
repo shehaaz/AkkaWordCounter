@@ -129,7 +129,7 @@ object AkkaWordCounter extends App {
     val stream : InputStream = getClass.getResourceAsStream("/" + fileName)
     val actor = system.actorOf(Props(new RoutingActor(new FileReference(fileName, stream), listener)))
     implicit val timeout = Timeout(5 seconds)
-    //When the future returns the OnCompleteSignal is sent
+    //When the future returns after all the work is complete
     val futureResult = actor ? StartProcessFileMsg()
     futureResult.map { result =>
       println("Number of lines processed in " + fileName + ": " + result)
