@@ -1,3 +1,5 @@
+Implementation of [Concurrency and Fault Tolerance Made Easy: An Akka Tutorial with Examples](https://www.toptal.com/scala/concurrency-and-fault-tolerance-made-easy-an-intro-to-akka)
+
 Using Akka Actors this reads all text files in a directory and counts the number of words in each file.
 
 Example output:
@@ -14,3 +16,6 @@ Example output:
 	Stream Complete: 2.txt Total Number of Words: 13084 Total Time: 322ms
 	Stream Complete: 8.txt Total Number of Words: 9100 Total Time: 31ms
 	Stream Complete: 9.txt Total Number of Words: 9100 Total Time: 27ms
+	
+
+![Diagram](http://i.imgur.com/QI58jTd.jpg)
