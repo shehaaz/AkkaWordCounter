@@ -129,18 +129,18 @@ object AkkaWordCounter extends App {
   def initActorSystem(fileName: String, system: ActorSystem): Unit = {
     //Fixing bug from original code: https://www.toptal.com/scala/concurrency-and-fault-tolerance-made-easy-an-intro-to-akka#comment-1776147740
     implicit val executionContext = global
-    // create the result listener, which will print the result
-    //val listenerName: String =  "Listener" + scala.util.Random.nextInt(100)
+    // create the result listener, which will print the result. Didn't give a name, so it will be unique every time
     val listener = system.actorOf(Props[Listener])
     //Load from /resources folder: http://stackoverflow.com/questions/27360977/how-to-read-files-from-resources-folder-in-scala
     val stream : InputStream = getClass.getResourceAsStream("/" + fileName)
-    val actor = system.actorOf(Props(new RoutingActor(new FileReference(fileName, stream), listener)))
+    //Again Didn't give the actor a name, so it will be unique every time
+    val routingActor = system.actorOf(Props(new RoutingActor(new FileReference(fileName, stream), listener)))
     implicit val timeout = Timeout(5 seconds)
-    //When the future returns after all the work is complete
-    val futureResult = actor ? StartProcessFileMsg()
+    //When the future returns after all the work is complete for each file
+    val futureResult = routingActor ? StartProcessFileMsg()
     futureResult.map { result =>
       //println("Number of lines processed in " + fileName + ": " + result)
-      //increment the file counter when a result is received
+      //Increment the file counter when a result is received
       fileCounter += 1
       if(fileCounter == numberOfFiles)
         {
