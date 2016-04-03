@@ -10,14 +10,17 @@ import akka.actor._
 import scala.concurrent.Future
 import scala.io.Source
 
-//Create all the message types
-case class ProcessStringMsg(lineNumber: Int, fileName: String, line: String, fileSender: Option[ActorRef], listener: ActorRef)
-case class StringProcessedMsg(fileSender: Option[ActorRef])
-case class CaptureStreamMsg(fileName: String, numOfWords: Int, lineNumber: Int)
-case class closeStreamMsg(totalTime: Long, fileName: String)
-case class StartProcessFileMsg()
+object StringCounterActor {
+  def props = Props[StringCounterActor]
+
+  case class ProcessStringMsg(lineNumber: Int, fileName: String, line: String, fileSender: Option[ActorRef], listener: ActorRef)
+}
 
 class StringCounterActor extends Actor {
+  import Listener.CaptureStreamMsg
+  import RoutingActor.StringProcessedMsg
+  import StringCounterActor._
+
   def receive = {
     case ProcessStringMsg(lineNumber, fileName, line, rootSender, listener) => {
       var wordsInLine = 0
@@ -42,9 +45,15 @@ class StringCounterActor extends Actor {
 
 object RoutingActor {
   def props(fileName: String, listener: ActorRef) = Props(new RoutingActor(fileName, listener))
+
+  case class StringProcessedMsg(fileSender: Option[ActorRef])
+  case object StartProcessFileMsg
 }
 
 class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
+  import Listener.CloseStreamMsg
+  import RoutingActor._
+  import StringCounterActor.ProcessStringMsg
 
   private var running = false
   private var totalLines = 0
@@ -52,7 +61,7 @@ class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
   private var startTime = 0L
 
   def receive = {
-    case StartProcessFileMsg() => {
+    case StartProcessFileMsg => {
       if (running) {
         println("Warning: duplicate start message received")
       } else {
@@ -71,7 +80,7 @@ class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
 
       if (linesProcessed == totalLines) {
         val stopTime = System.nanoTime()
-        listener ! closeStreamMsg(stopTime-startTime, fileName)
+        listener ! CloseStreamMsg(fileName, stopTime - startTime)
         rootSender match {
           case (Some(o)) => o ! linesProcessed // provide result to process invoker
         }
@@ -83,19 +92,21 @@ class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
 
 object Listener {
   def props = Props[Listener]
+
+  case class CaptureStreamMsg(fileName: String, numOfWords: Int, lineNumber: Int)
+  case class CloseStreamMsg(fileName: String, totalTime: Long)
 }
 
 class Listener extends Actor {
+  import Listener._
+
   private var totalNumberOfWords = 0
 
   def receive = {
-
     case CaptureStreamMsg(fileName, numOfWords, lineNumber) =>
       totalNumberOfWords += numOfWords
-    //println(fileName + " " + "L." + lineNumber + " " + numOfWords + " words")
-    //Stream results to Client
 
-    case closeStreamMsg(totalTime, fileName) =>
+    case CloseStreamMsg(fileName, totalTime) =>
       println("Stream Complete: " + fileName + " Total Number of Words: " + totalNumberOfWords +
         " Total Time: " + totalTime/1000000 + "ms")
 
@@ -105,8 +116,10 @@ class Listener extends Actor {
 
 object AkkaWordCounter extends App {
 
+  import RoutingActor.StartProcessFileMsg
   import akka.pattern.ask
   import akka.util.Timeout
+
   import scala.concurrent.duration._
 
   override def main(args: Array[String]) {
@@ -129,7 +142,7 @@ object AkkaWordCounter extends App {
     val listener = system.actorOf(Props[Listener], name = s"Listener:${fileName.replace('/', '_')}")
     val actor = system.actorOf(RoutingActor.props(fileName, listener))
 
-    actor ? StartProcessFileMsg()
+    actor ? StartProcessFileMsg
   }
 }
 
