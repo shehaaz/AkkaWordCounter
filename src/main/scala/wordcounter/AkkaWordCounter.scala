@@ -167,6 +167,7 @@ object AkkaWordCounter extends App {
       * http://doc.akka.io/docs/akka/current/scala/futures.html
       * When the future returns after all the work is complete for each file
       */
+
 //    val futureResult = routingActor ? StartProcessFileMsg()
 //    futureResult.map { result =>
 //      //"result" can be also be an object. You simply have to do result.asInstanceOf[ObjectName]
