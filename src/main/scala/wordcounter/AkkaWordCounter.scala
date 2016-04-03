@@ -8,15 +8,14 @@ import java.io.File
 
 import akka.actor._
 
+import scala.io.Source
+
 //Create all the message types
 case class ProcessStringMsg(lineNumber: Int, fileName: String, line: String, fileSender: Option[ActorRef], listener: ActorRef)
 case class StringProcessedMsg(fileSender: Option[ActorRef])
 case class CaptureStreamMsg(fileName: String, numOfWords: Int, lineNumber: Int)
 case class closeStreamMsg(totalTime: Long, fileName: String)
 case class StartProcessFileMsg()
-
-//A class to hold the file name and input stream
-class FileReference(val fileName: String, val stream: InputStream)
 
 class StringCounterActor extends Actor {
   def receive = {
@@ -43,12 +42,11 @@ class StringCounterActor extends Actor {
 
 
 
-class RoutingActor(fileRef: FileReference, listener: ActorRef) extends Actor {
+class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
 
   private var running = false
   private var totalLines = 0
   private var linesProcessed = 0
-  private val fileName = fileRef.fileName
   private var startTime = 0L
 
   def receive = {
@@ -59,7 +57,7 @@ class RoutingActor(fileRef: FileReference, listener: ActorRef) extends Actor {
         running = true
         startTime = System.nanoTime()
         val rootSender = Some(sender) // save reference to process invoker
-        val lines = scala.io.Source.fromInputStream(fileRef.stream)
+        val lines = Source.fromFile(fileName)
         lines.getLines.foreach { line =>
           context.actorOf(Props[StringCounterActor]) ! ProcessStringMsg(totalLines, fileName, line, rootSender, listener)
           totalLines += 1
@@ -108,15 +106,11 @@ object AkkaWordCounter extends App {
 
   override def main(args: Array[String]) {
 
-    val files = getListOfFiles("src/main/resources/")
-
-    /**
-      * foreach takes a procedure -- a function with a result type Unit -- as the right operand.
-      * It simply applies the procedure to each List element.
-      * The result of the operation is again Unit; no list of results is assembled.
-      */
-    files.foreach(initActorSystem)
-
+    val sourceDirectoryName = if (args.length > 0) args(1) else "src/main/resources/"
+    val directory = new File(sourceDirectoryName)
+    if (directory.exists && directory.isDirectory) {
+      directory.listFiles.map(_.getAbsolutePath).foreach(initActorSystem)
+    }
   }
 
   def initActorSystem(fileName: String): Unit = {
@@ -126,8 +120,7 @@ object AkkaWordCounter extends App {
     // create the result listener, which will print the result
     val listener = system.actorOf(Props[Listener], name = "Listener")
     //Load from /resources folder: http://stackoverflow.com/questions/27360977/how-to-read-files-from-resources-folder-in-scala
-    val stream : InputStream = getClass.getResourceAsStream("/" + fileName)
-    val actor = system.actorOf(Props(new RoutingActor(new FileReference(fileName, stream), listener)))
+    val actor = system.actorOf(Props(new RoutingActor(fileName, listener)))
     implicit val timeout = Timeout(5 seconds)
     //When the future returns after all the work is complete
     val futureResult = actor ? StartProcessFileMsg()
@@ -137,15 +130,6 @@ object AkkaWordCounter extends App {
       system.terminate()
     }
 
-  }
-
-  def getListOfFiles(dir: String):List[String] = {
-    val d = new File(dir)
-    if (d.exists && d.isDirectory) {
-      d.listFiles.map(file => file.getName).toList
-    } else {
-      List[String]()
-    }
   }
 }
 
