@@ -3,11 +3,11 @@ package wordcounter
 /**
   * Created by ssaif on 4/2/16.
   */
-import java.io.InputStream
 import java.io.File
 
 import akka.actor._
 
+import scala.concurrent.Future
 import scala.io.Source
 
 //Create all the message types
@@ -40,7 +40,9 @@ class StringCounterActor extends Actor {
   }
 }
 
-
+object RoutingActor {
+  def props(fileName: String, listener: ActorRef) = Props(new RoutingActor(fileName, listener))
+}
 
 class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
 
@@ -79,6 +81,10 @@ class RoutingActor(fileName: String, listener: ActorRef) extends Actor {
   }
 }
 
+object Listener {
+  def props = Props[Listener]
+}
+
 class Listener extends Actor {
   private var totalNumberOfWords = 0
 
@@ -99,37 +105,31 @@ class Listener extends Actor {
 
 object AkkaWordCounter extends App {
 
+  import akka.pattern.ask
   import akka.util.Timeout
   import scala.concurrent.duration._
-  import akka.pattern.ask
-  import akka.dispatch.ExecutionContexts._
 
   override def main(args: Array[String]) {
-
     val sourceDirectoryName = if (args.length > 0) args(1) else "src/main/resources/"
     val directory = new File(sourceDirectoryName)
     if (directory.exists && directory.isDirectory) {
-      directory.listFiles.map(_.getAbsolutePath).foreach(initActorSystem)
+      val system = ActorSystem()
+      implicit val ec = system.dispatcher
+      val results = directory.listFiles.map(_.getAbsolutePath).map(processFile(system, _))
+      Future.sequence(results.toIterable).onComplete { _ =>
+        system.terminate()
+      }
     }
   }
 
-  def initActorSystem(fileName: String): Unit = {
-    //Fixing bug from original code: https://www.toptal.com/scala/concurrency-and-fault-tolerance-made-easy-an-intro-to-akka#comment-1776147740
-    implicit val executionContext = global
-    val system = ActorSystem("ActorSystem")
-    // create the result listener, which will print the result
-    val listener = system.actorOf(Props[Listener], name = "Listener")
-    //Load from /resources folder: http://stackoverflow.com/questions/27360977/how-to-read-files-from-resources-folder-in-scala
-    val actor = system.actorOf(Props(new RoutingActor(fileName, listener)))
-    implicit val timeout = Timeout(5 seconds)
-    //When the future returns after all the work is complete
-    val futureResult = actor ? StartProcessFileMsg()
-    futureResult.map { result =>
-      //println("Number of lines processed in " + fileName + ": " + result)
-      //Terminate Actor System when result is received
-      system.terminate()
-    }
+  def processFile(system: ActorSystem, fileName: String): Future[Any] = {
+    implicit val ec = system.dispatcher
+    implicit val timeout = Timeout(30 seconds)
 
+    val listener = system.actorOf(Props[Listener], name = s"Listener:${fileName.replace('/', '_')}")
+    val actor = system.actorOf(RoutingActor.props(fileName, listener))
+
+    actor ? StartProcessFileMsg()
   }
 }
 
