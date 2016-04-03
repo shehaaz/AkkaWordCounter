@@ -38,3 +38,8 @@ Example output:
 Read more here:
 [Do I need to re-use the same Akka ActorSystem or can I just create one every time I need one?]
 (http://stackoverflow.com/questions/10396552/do-i-need-to-re-use-the-same-akka-actorsystem-or-can-i-just-create-one-every-tim)
+
+####[Messages are sent to an Actor through one of the following methods.](http://doc.akka.io/docs/akka/2.4.1/scala/actors.html#Send_messages)
+
+* `!` means “fire-and-forget”, e.g. send a message asynchronously and return immediately. Also known as tell.
+* `?` sends a message asynchronously and returns a Future representing a possible reply. Also known as ask
