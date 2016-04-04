@@ -6,8 +6,6 @@
 
 Example output:
 
-`$>`
-
     Stream Complete: 2.txt Total Number of Words: 13084 Total Time: 148ms
     Stream Complete: 4.txt Total Number of Words: 13084 Total Time: 113ms
     Stream Complete: 8.txt Total Number of Words: 9100 Total Time: 107ms
@@ -19,6 +17,7 @@ Example output:
     Stream Complete: 9.txt Total Number of Words: 1256064 Total Time: 1267ms
     Stream Complete: 1.txt Total Number of Words: 1256064 Total Time: 1283ms
 	
+
 
 ![Diagram](http://i.imgur.com/qjs0IJD.jpg)
 
