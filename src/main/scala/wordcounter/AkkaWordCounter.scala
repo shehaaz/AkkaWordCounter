@@ -9,8 +9,8 @@ import java.io.File
 import akka.actor._
 
 //Create all the message types
-case class ProcessStringMsg(lineNumber: Int, fileName: String, line: String, fileSender: Option[ActorRef], listener: ActorRef)
-case class StringProcessedMsg(fileSender: Option[ActorRef])
+case class ProcessStringMsg(lineNumber: Int, fileName: String, line: String, listener: ActorRef)
+case class StringProcessedMsg()
 case class CaptureStreamMsg(fileName: String, numOfWords: Int, lineNumber: Int)
 case class CloseStreamMsg(totalTime: Long, fileName: String)
 case class StartProcessFileMsg()
@@ -21,7 +21,7 @@ class FileReference(val fileName: String, val stream: InputStream)
 
 class StringCounterActor extends Actor {
   def receive = {
-    case ProcessStringMsg(lineNumber, fileName, line, rootSender, listener) => {
+    case ProcessStringMsg(lineNumber, fileName, line, listener) => {
       var wordsInLine = 0
       if(line.length != 0)
       {
@@ -30,7 +30,7 @@ class StringCounterActor extends Actor {
 
       try {
         listener ! CaptureStreamMsg(fileName, wordsInLine, lineNumber) //Streams word count to listener
-        sender ! StringProcessedMsg(rootSender) //Sends a ping to the RoutingActor every time it finishes a task
+        sender ! StringProcessedMsg() //Sends a ping to the RoutingActor every time it finishes a task
       }
       catch {
         case e: Exception =>
@@ -59,16 +59,15 @@ class RoutingActor(fileRef: FileReference, listener: ActorRef, incrementor: Acto
       } else {
         running = true
         startTime = System.nanoTime()
-        val rootSender = Some(sender) // save reference to process invoker
         val lines = scala.io.Source.fromInputStream(fileRef.stream)
         lines.getLines.foreach { line =>
-          context.actorOf(Props[StringCounterActor]) ! ProcessStringMsg(totalLines, fileName, line, rootSender, listener)
+          context.actorOf(Props[StringCounterActor]) ! ProcessStringMsg(totalLines, fileName, line, listener)
           totalLines += 1
         }
         lines.close()
       }
     }
-    case StringProcessedMsg(rootSender) => {
+    case StringProcessedMsg() => {
       linesProcessed += 1
 
       if (linesProcessed == totalLines) {
@@ -76,9 +75,6 @@ class RoutingActor(fileRef: FileReference, listener: ActorRef, incrementor: Acto
         val stopTime = System.nanoTime()
         listener ! CloseStreamMsg(stopTime-startTime, fileName)
         incrementor ! IncrementFileCounter()
-        rootSender match {
-          case (Some(o)) => //o ! linesProcessed // provide result to process invoker (i.e: futureResult)
-        }
       }
     }
     case _ => println("message not recognized!")
@@ -115,7 +111,7 @@ class Incrementor(totalNumOfFiles: Int, system: ActorSystem) extends Actor {
               system.terminate()
             }
 
-    case _ => println("Error: message not recognized I")
+    case _ => println("Error: message not recognized")
   }
 }
 
@@ -141,6 +137,7 @@ object AkkaWordCounter extends App {
       * The result of the operation is again Unit; no list of results is assembled.
       */
     numberOfFiles = files.length
+    //The incrementor keeps track of files processed and terminates the system.
     val incrementor = system.actorOf(Props(new Incrementor(numberOfFiles, system)))
     files.foreach(x => initActorSystem(x, system, incrementor))
 
@@ -164,7 +161,7 @@ object AkkaWordCounter extends App {
       */
 
     /**
-      * Option One: Do a Ask call
+      * Option One: Do an Ask call
       * http://doc.akka.io/docs/akka/current/scala/futures.html
       * When the future returns after all the work is complete for each file
       */
@@ -184,12 +181,13 @@ object AkkaWordCounter extends App {
       * This is simpler and more expressive than using futures and having to map over composed responses,
       * but I’m also only using one asynchronous threaded resource (the anonymous actor I created) as opposed to multiple futures for
       * the sends and the myriad futures returned within a composed for comprehension to handle the results. Always try to focus on tell over ask.
-      * Truly fault-resilient systems send messages in fire and forget fashion and prepare to receive the expected response.
+      * Truly fault-resilient systems send messages in FIRE AND FORGET fashion and prepare to receive the expected response.
       * They do not make assumptions that sending once means that the message was definitely received and is being handled, since anything can happen in between.
       * As such, we should schedule a task to continually resend that message a pre-defined number of times in some acceptable duration.
       * If no expected response is received within that timeframe, we should be able to handle or escalate the failure.
       *
       */
+    //FIRE AND FORGET
      routingActor ! StartProcessFileMsg()
 
   }
