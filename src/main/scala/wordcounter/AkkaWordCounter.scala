@@ -65,6 +65,7 @@ class RoutingActor(fileRef: FileReference, listener: ActorRef, incrementor: Acto
           context.actorOf(Props[StringCounterActor]) ! ProcessStringMsg(totalLines, fileName, line, rootSender, listener)
           totalLines += 1
         }
+        lines.close()
       }
     }
     case StringProcessedMsg(rootSender) => {
