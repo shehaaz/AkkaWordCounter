@@ -20,7 +20,7 @@ Example output:
 	Stream Complete: 9.txt Total Number of Words: 9100 Total Time: 27ms
 	
 
-![Diagram](http://i.imgur.com/QI58jTd.jpg)
+![Diagram](http://i.imgur.com/tWQUauX.jpg)
 
 
 ####**Update**: Don't create a new ActorSystem for each file.
