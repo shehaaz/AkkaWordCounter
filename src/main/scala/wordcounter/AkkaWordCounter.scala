@@ -139,7 +139,7 @@ object AkkaWordCounter extends App {
     numberOfFiles = files.length
     //The incrementor keeps track of files processed and terminates the system.
     val incrementor = system.actorOf(Props(new Incrementor(numberOfFiles, system)))
-    files.foreach(x => initActorSystem(x, system, incrementor))
+    files.foreach(fileName => initActorSystem(fileName, system, incrementor))
 
   }
 
